@@ -2,15 +2,53 @@ from random import randrange
 from datetime import datetime
 from time import sleep
 from osrsbox import items_api
+import json
+import re
 
-print("Loading items from OSRSBox Database...", end="\r")
-items = items_api.load()
-print("Items loaded!                         ", end="\r")
+def loadConfig():
+    config_file = open(".\item_properties_template.json", "r")
+    config_json = json.loads(config_file.read())
+    config_file.close()
+    return config_json
+
+def tryLoadItemsWithConfig():
+    items_dictionary: Dict[int, ItemProperties] = dict()
+    item_config = loadConfig()
+
+    current_id = 0
+    for item in items_api.load():
+        item_is_valid = True
+        for property_name, regex in item_config.items():
+            property_is_valid = re.search(str(regex), str(getattr(item, property_name))) != None
+            item_is_valid = item_is_valid and property_is_valid
+            
+        if (item_is_valid):
+            items_dictionary[current_id] = item
+            current_id += 1
+
+    return items_dictionary
+
+def loadItems():
+    items = None
+    
+    try:
+        print("Loading items from OSRSBox Database...", end="\r")
+        items = tryLoadItemsWithConfig()
+        print("Items loaded!                         ", end="\r")
+    except Exception as exception:
+        print("Whoops! Something went wrong trying to load the items using the config!")
+        print("An error message has been written to '.\error.log'!", end="\n\n")
+        logError(exception)
+        items = items_api.load()
+
+    return items
+
+ITEMS = loadItems()
 
 def logError(error):
-    errorLog = open("error.log", "a")
-    errorLog.write(f"[{datetime.now()}]: {error}\n")
-    errorLog.close()
+    error_log = open(".\error.log", "a")
+    error_log.write(f"[{datetime.now()}]: {error}\n")
+    error_log.close()    
 
 def doSpinningAnimation(iterations = 6, fps = 120):
     ANIMATION_FRAMES = "                       ########                       "
@@ -43,8 +81,8 @@ def doSpinningAnimation(iterations = 6, fps = 120):
 def spinFortuneWheel():
     print("Spinning the Wheel of Fortune!")
     doSpinningAnimation()
-    randomItemID = randrange(0, len(items))
-    print(f"Your current objective is: {items[randomItemID].name}!", end="\n\n")
+    random_item_id = randrange(0, len(ITEMS))
+    print(f"Your current objective is: {ITEMS[random_item_id].name}!", end="\n\n")
 
 def playFortuneWheel():
     print("Welcome to the Wheel of Fortune!");
@@ -68,7 +106,7 @@ def main():
         except Exception as exception:
             print("Whoops! Something went wrong! Restarting the wheel!")
             print("An error message has been written to '.\error.log'!")
-            logError(str(exception))
+            logError(exception)
             continue
 
         break
