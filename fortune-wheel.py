@@ -5,52 +5,53 @@ from osrsbox import items_api
 import json
 import re
 
-def loadConfig():
-    config_file = open(".\item_properties_template.json", "r")
-    config_json = json.loads(config_file.read())
-    config_file.close()
-    return config_json
+# ERROR LOGGING
+def logError(error):
+    error_log = open(".\error.log", "a")
+    error_log.write(f"[{datetime.now()}]: {error}\n")
+    error_log.close()
 
-def tryLoadItemsWithConfig():
-    items_dictionary: Dict[int, ItemProperties] = dict()
-    item_config = loadConfig()
+# ITEM LOADING
+def tryLoadItemPropertiesTemplate():
+    template_file = open(".\item_properties_template.json", "r")
+    template_json = json.loads(template_file.read())
+    template_file.close()
+    return template_json
 
-    current_id = 0
-    for item in items_api.load():
-        item_is_valid = True
-        for property_name, regex in item_config.items():
-            property_is_valid = re.search(str(regex), str(getattr(item, property_name))) != None
-            item_is_valid = item_is_valid and property_is_valid
-            
-        if (item_is_valid):
-            items_dictionary[current_id] = item
-            current_id += 1
-
-    return items_dictionary
-
-def loadItems():
-    items = None
-    
+def loadItemPropertiesTemplate():
     try:
-        print("Loading items from OSRSBox Database...", end="\r")
-        items = tryLoadItemsWithConfig()
-        print("Items loaded!                         ", end="\r")
+        return tryLoadItemPropertiesTemplate()
     except Exception as exception:
-        print("Whoops! Something went wrong trying to load the items using the config!")
+        print("Whoops! Something went wrong trying to load the item properties template!")
         print("An error message has been written to '.\error.log'!", end="\n\n")
         logError(exception)
-        items = items_api.load()
+        return json.loads("{}")
 
+def itemMatchesTemplate(item, item_template):
+    item_matches = True
+    
+    for property_name, regex in item_template.items():
+        property_matches = re.search(str(regex), str(getattr(item, property_name))) != None
+        item_matches = item_matches and property_matches
+
+    return item_matches
+
+def loadItems():
+    print("Loading items from OSRSBox Database...", end="\r")
+    items = []
+    item_template = loadItemPropertiesTemplate()
+    
+    for item in items_api.load():
+        if (itemMatchesTemplate(item, item_template)):
+            items.append(item)
+            
+    print("Items loaded!                         ", end="\r")
     return items
 
 ITEMS = loadItems()
 
-def logError(error):
-    error_log = open(".\error.log", "a")
-    error_log.write(f"[{datetime.now()}]: {error}\n")
-    error_log.close()    
-
-def doSpinningAnimation(iterations = 6, fps = 120):
+# FORTUNE WHEEL
+def doSpinningAnimation(iterations = 4, fps = 120):
     ANIMATION_FRAMES = "                       ########                       "
     ANIMATION_FRAME_LENGTH = 31
     ANIMATION_TURNPOINT_LEFT = 0
